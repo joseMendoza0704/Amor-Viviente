@@ -1,0 +1,43 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment and Secrets
+.env
+.env.local
+.env.*.local
+firebase-debug.log*
+.firebase/
+.firebaserc
+
+# Build Output
+dist/
+dist-ssr/
+*.out
+
+# Editor/System Files
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Agent Specific
+.gemini/
+.agent/
+brain/
+logs/
+*.webp
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
