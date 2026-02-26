@@ -13,31 +13,73 @@ export const useMiembros = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Estado para grupos disponibles (para admins)
+    const [listaGrupos, setListaGrupos] = useState([]);
+    const [filtroGrupo, setFiltroGrupo] = useState('');
+
     // Estado del mes seleccionado para el filtro
     const [filtroMes, setFiltroMes] = useState(new Date().getMonth());
     const [filtroAnio, setFiltroAnio] = useState(new Date().getFullYear());
 
+    // Inicializar el filtro de grupo con el asignado al perfil
+    useEffect(() => {
+        if (!filtroGrupo) {
+            if (profile?.grupoAsignado) {
+                setFiltroGrupo(profile.grupoAsignado);
+            } else if (profile?.listaGrupos && profile.listaGrupos.length > 0) {
+                setFiltroGrupo(profile.listaGrupos[0]);
+            }
+        }
+    }, [profile?.grupoAsignado, profile?.listaGrupos]);
+
     const fetchData = useCallback(async () => {
-        if (!profile?.grupoAsignado) return;
+        // El administrador puede ver todo, los líderes necesitan grupo.
+        // Si filtroGrupo es "" (Todos), lo tomamos tal cual para la consulta.
+        const grupoABuscar = filtroGrupo;
+
+        // Si no hay grupo y NO es admin, no buscar.
+        if (!grupoABuscar && !profile?.isAdmin) return;
 
         setLoading(true);
         setError(null);
         try {
-            // Cargar miembros y asistencias del mes seleccionado en paralelo
-            const [miembrosData, asistenciasData] = await Promise.all([
-                MiembrosService.getMiembrosPorGrupo(profile.grupoAsignado),
-                AsistenciaService.getAsistenciasPorMes(profile.grupoAsignado, filtroMes, filtroAnio)
-            ]);
+            // Cargar miembros, asistencias y la lista de todos los grupos si es admin
+            const promesas = [
+                MiembrosService.getMiembrosPorGrupo(grupoABuscar),
+                AsistenciaService.getAsistenciasPorMes(grupoABuscar, filtroMes, filtroAnio)
+            ];
+
+            if (profile?.isAdmin) {
+                promesas.push(MiembrosService.getTodosLosGrupos());
+            }
+
+            const [miembrosData, asistenciasData, gruposTotal] = await Promise.all(promesas);
 
             setMiembros(miembrosData);
             setAsistencias(asistenciasData);
+
+            // Los admins ven todos los grupos de la BD.
+            // Los no-admins solo ven los grupos asignados a su perfil.
+            if (profile?.isAdmin) {
+                const adminGrupos = new Set([
+                    ...(profile?.listaGrupos || []),
+                    ...(gruposTotal || [])
+                ]);
+                if (profile?.grupoAsignado) adminGrupos.add(profile.grupoAsignado);
+                setListaGrupos(Array.from(adminGrupos).filter(Boolean).sort());
+            } else {
+                // Solo grupos explícitamente asignados al perfil del usuario
+                const perfilGrupos = new Set(profile?.listaGrupos || []);
+                if (profile?.grupoAsignado) perfilGrupos.add(profile.grupoAsignado);
+                setListaGrupos(Array.from(perfilGrupos).filter(Boolean).sort());
+            }
         } catch (err) {
             console.error("useMiembros Error:", err);
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    }, [profile?.grupoAsignado, filtroMes, filtroAnio]);
+    }, [profile?.grupoAsignado, profile?.listaGrupos, profile?.isAdmin, filtroGrupo, filtroMes, filtroAnio]);
 
     useEffect(() => {
         fetchData();
@@ -108,12 +150,42 @@ export const useMiembros = () => {
                 colorEstado
             };
         });
+
+        // Ordenar por Jerarquía: Líder (1) -> Asistente (2) -> Tesorero (3) -> Congregante / otros (4)
+        const ORDEN_JERARQUIA = {
+            'Líder': 1,
+            'Asistente': 2,
+            'Tesorero': 3
+        };
+
+        return miembrosProcesados.sort((a, b) => {
+            const getOrden = (rol) => ORDEN_JERARQUIA[rol] || 4;
+            const ordenA = getOrden(a.rol);
+            const ordenB = getOrden(b.rol);
+
+            if (ordenA !== ordenB) {
+                return ordenA - ordenB; // Por jerarquía
+            }
+            // Mismo rol: ordenar alfabéticamente por nombre
+            return (a.nombre || '').localeCompare(b.nombre || '');
+        });
     }, [miembros, asistencias]);
+
+    // Mapa de roboles únicos ocupados en el grupo actual: { 'Líder': 'Juan P.', 'Tesorero': 'Ana M.' }
+    const rolesOcupados = useMemo(() => {
+        const ocupados = {};
+        miembrosConAsistencia.forEach(m => {
+            if (m.activo !== false && m.rol && m.rol !== '' && m.rol !== 'Congregante') {
+                ocupados[m.rol] = m.nombre;
+            }
+        });
+        return ocupados;
+    }, [miembrosConAsistencia]);
 
     const agregarMiembro = async (data) => {
         const id = await MiembrosService.agregarMiembro({
             ...data,
-            grupo: profile.grupoAsignado
+            grupo: filtroGrupo || profile.grupoAsignado
         });
         await fetchData();
         return id;
@@ -154,11 +226,15 @@ export const useMiembros = () => {
 
     return {
         miembros: miembrosConAsistencia,
-        asistencias, // Exponer asistencias crudas para el modal de corrección
+        asistencias,
         filtroMes,
         filtroAnio,
         setFiltroMes,
         setFiltroAnio,
+        filtroGrupo,
+        setFiltroGrupo,
+        listaGrupos,
+        rolesOcupados,
         loading,
         error,
         agregarMiembro,

@@ -1,9 +1,12 @@
 import {
     signInWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    createUserWithEmailAndPassword
 } from "firebase/auth";
-import { doc, getDoc, query, collection, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, query, collection, where, getDocs, updateDoc, serverTimestamp } from "firebase/firestore";
+import { initializeApp, deleteApp, getApps } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { auth, db } from "../config/firebase";
 
 /**
@@ -60,11 +63,91 @@ class AuthService {
         }
     }
 
+    /**
+     * Obtiene todos los usuarios (Solo para gestión administrativa).
+     */
+    async getAllUsers() {
+        try {
+            const querySnapshot = await getDocs(collection(db, "usuarios"));
+            return querySnapshot.docs.map(doc => ({
+                uid: doc.id,
+                ...doc.data()
+            }));
+        } catch (error) {
+            throw this._handleError(error);
+        }
+    }
+
+    /**
+     * Actualiza el perfil de un usuario.
+     */
+    async updateUserProfile(uid, data) {
+        try {
+            const userRef = doc(db, "usuarios", uid);
+            await updateDoc(userRef, {
+                ...data,
+                ultimaActualizacion: new Date()
+            });
+            return true;
+        } catch (error) {
+            throw this._handleError(error);
+        }
+    }
+
+    /**
+     * Crea un nuevo usuario en Firebase Auth + perfil en Firestore.
+     * Usa una app Firebase secundaria temporal para no interrumpir la sesión del admin.
+     */
+    async crearUsuario(email, password, profileData) {
+        // Nombre único para evitar colisión con apps existentes
+        const tempAppName = `temp-create-user-${Date.now()}`;
+        let tempApp = null;
+
+        try {
+            // Leer la config de la app principal
+            const mainApp = getApps().find(a => a.name === '[DEFAULT]');
+            const mainConfig = mainApp.options;
+
+            // Inicializar app temporal
+            tempApp = initializeApp(mainConfig, tempAppName);
+            const tempAuth = getAuth(tempApp);
+
+            // Crear el usuario en Auth (sin afectar la sesión del admin)
+            const credential = await createUserWithEmailAndPassword(tempAuth, email, password);
+            const newUid = credential.user.uid;
+
+            // Desloguearse en la app temporal (buena práctica)
+            await signOut(tempAuth);
+
+            // Guardar el perfil en Firestore
+            await setDoc(doc(db, "usuarios", newUid), {
+                correo: email,
+                nombre: profileData.nombre || '',
+                rol: profileData.rol || 'lider',
+                grupoAsignado: '',
+                listaGrupos: [],
+                creadoEn: serverTimestamp()
+            });
+
+            return newUid;
+        } catch (error) {
+            throw this._handleError(error);
+        } finally {
+            // Destruir la app temporal siempre
+            if (tempApp) {
+                await deleteApp(tempApp).catch(() => { });
+            }
+        }
+    }
+
     _normalizeProfileData(data) {
         return {
             ...data,
+            // Soporte para múltiples grupos (array) o uno solo (string)
+            listaGrupos: data.listaGrupos || (data.grupoAsignado ? [data.grupoAsignado] : []),
             grupoAsignado: data.grupoAsignado || data["grupo asignado"] || "",
-            rol: data.rol || "lider"
+            rol: data.rol || "lider",
+            isAdmin: data.rol === "admin"
         };
     }
 
@@ -77,7 +160,6 @@ class AuthService {
 
     _handleError(error) {
         console.error("AuthService Error:", error.code, error.message);
-        // Traducción de errores comunes de Firebase
         switch (error.code) {
             case "auth/user-not-found":
                 return new Error("El usuario no existe.");
@@ -85,6 +167,12 @@ class AuthService {
                 return new Error("Contraseña incorrecta.");
             case "auth/invalid-email":
                 return new Error("Email no válido.");
+            case "auth/email-already-in-use":
+                return new Error("Este correo ya está registrado en el sistema.");
+            case "auth/weak-password":
+                return new Error("La contraseña debe tener al menos 6 caracteres.");
+            case "auth/invalid-credential":
+                return new Error("Credenciales incorrectas. Verifica tu correo y contraseña.");
             default:
                 return new Error("Error en la autenticación. Intente de nuevo.");
         }

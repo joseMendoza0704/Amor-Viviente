@@ -9,7 +9,9 @@ import {
     LogOut,
     Menu,
     X,
-    User
+    User,
+    UserCog,
+    Calendar
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -35,7 +37,7 @@ const SidebarItem = ({ to, icon: Icon, label, onClick }) => (
 );
 
 const MainLayout = ({ children }) => {
-    const { user, profile, logout } = useAuth();
+    const { user, profile, logout, isAdmin } = useAuth();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const navigate = useNavigate();
 
@@ -76,8 +78,12 @@ const MainLayout = ({ children }) => {
                     <nav className="flex-1 space-y-2">
                         <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" onClick={() => setIsSidebarOpen(false)} />
                         <SidebarItem to="/miembros" icon={Users} label="Directorio CRM" onClick={() => setIsSidebarOpen(false)} />
+                        <SidebarItem to="/programa" icon={Calendar} label="Programa" onClick={() => setIsSidebarOpen(false)} />
                         <SidebarItem to="/asistencias" icon={CheckSquare} label="Asistencias" onClick={() => setIsSidebarOpen(false)} />
                         <SidebarItem to="/inventario" icon={Package} label="Inventario" onClick={() => setIsSidebarOpen(false)} />
+                        {isAdmin && (
+                            <SidebarItem to="/usuarios" icon={UserCog} label="Configuración Usuarios" onClick={() => setIsSidebarOpen(false)} />
+                        )}
                     </nav>
 
                     {/* Perfil y Logout */}
@@ -100,26 +106,26 @@ const MainLayout = ({ children }) => {
                         </button>
                     </div>
                 </div>
-            </aside>
+            </aside >
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            < div className="flex-1 flex flex-col min-w-0 overflow-hidden" >
                 {/* Top Navbar (Mobile only header) */}
-                <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200">
+                < header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200" >
                     <span className="font-bold text-slate-900">Amor Viviente</span>
                     <button onClick={toggleSidebar} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
                         {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
-                </header>
+                </header >
 
                 {/* Dynamic Content */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10">
+                < main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10" >
                     <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {children}
                     </div>
-                </main>
-            </div>
-        </div>
+                </main >
+            </div >
+        </div >
     );
 };
 

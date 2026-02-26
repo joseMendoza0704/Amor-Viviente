@@ -19,12 +19,21 @@ class AsistenciaService {
     async getAsistenciasPorGrupo(grupo, maxResults = 8) {
         console.log("AsistenciaService: Consultando para grupo:", grupo);
         try {
-            const q = query(
-                collection(db, this.collectionName),
-                where("grupo", "==", grupo),
-                orderBy("timestamp", "desc"),
-                limit(maxResults)
-            );
+            let q;
+            if (grupo) {
+                q = query(
+                    collection(db, this.collectionName),
+                    where("grupo", "==", grupo),
+                    orderBy("timestamp", "desc"),
+                    limit(maxResults)
+                );
+            } else {
+                q = query(
+                    collection(db, this.collectionName),
+                    orderBy("timestamp", "desc"),
+                    limit(maxResults)
+                );
+            }
 
             const querySnapshot = await getDocs(q);
             const data = querySnapshot.docs.map(doc => ({
@@ -51,13 +60,17 @@ class AsistenciaService {
         const fin = new Date(anio, mes + 1, 0, 23, 59, 59);
 
         try {
-            const q = query(
-                collection(db, this.collectionName),
-                where("grupo", "==", grupo),
+            const constraints = [
                 where("timestamp", ">=", Timestamp.fromDate(inicio)),
                 where("timestamp", "<=", Timestamp.fromDate(fin)),
                 orderBy("timestamp", "asc")
-            );
+            ];
+
+            if (grupo) {
+                constraints.unshift(where("grupo", "==", grupo));
+            }
+
+            const q = query(collection(db, this.collectionName), ...constraints);
 
             const querySnapshot = await getDocs(q);
             return querySnapshot.docs.map(doc => ({

@@ -46,6 +46,17 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const refreshProfile = async () => {
+        if (!user) return;
+        try {
+            const userProfile = await AuthService.getUserProfile(user.uid, user.email);
+            setProfile(userProfile);
+            return userProfile;
+        } catch (err) {
+            console.error("Error refreshing profile:", err);
+        }
+    };
+
     const logout = async () => {
         try {
             await AuthService.logout();
@@ -61,6 +72,7 @@ export const AuthProvider = ({ children }) => {
         error,
         login,
         logout,
+        refreshProfile,
         isAdmin: profile?.rol === "admin",
         grupoAsignado: profile?.grupoAsignado || ""
     };

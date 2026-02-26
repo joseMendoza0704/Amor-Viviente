@@ -6,6 +6,8 @@ import MainLayout from './layouts/MainLayout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Miembros from './pages/Miembros'
+import Usuarios from './pages/Usuarios'
+import Programa from './pages/Programa'
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -41,7 +43,14 @@ function App() {
           </PrivateRoute>
         } />
 
-        {/* Placeholders para el resto */}
+        <Route path="/usuarios" element={
+          <PrivateRoute>
+            <MainLayout>
+              <Usuarios />
+            </MainLayout>
+          </PrivateRoute>
+        } />
+
         <Route path="/asistencias" element={
           <PrivateRoute>
             <MainLayout>
@@ -49,6 +58,14 @@ function App() {
                 <h2 className="text-2xl font-bold text-slate-800">Módulo de Asistencias</h2>
                 <p className="text-slate-500">Próximamente disponible.</p>
               </div>
+            </MainLayout>
+          </PrivateRoute>
+        } />
+
+        <Route path="/programa" element={
+          <PrivateRoute>
+            <MainLayout>
+              <Programa />
             </MainLayout>
           </PrivateRoute>
         } />

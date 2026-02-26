@@ -19,15 +19,17 @@ class MiembrosService {
         this.collectionName = "miembros";
     }
 
-    /**
-     * Obtiene los miembros pertenecientes a un grupo específico.
-     */
     async getMiembrosPorGrupo(grupo) {
         try {
-            const q = query(
-                collection(db, this.collectionName),
-                where("grupo", "==", grupo)
-            );
+            let q;
+            if (grupo) {
+                q = query(
+                    collection(db, this.collectionName),
+                    where("grupo", "==", grupo)
+                );
+            } else {
+                q = query(collection(db, this.collectionName));
+            }
             const querySnapshot = await getDocs(q);
             return querySnapshot.docs.map(doc => ({
                 id: doc.id,
@@ -35,6 +37,23 @@ class MiembrosService {
             }));
         } catch (error) {
             throw new Error(`Error al obtener miembros: ${error.message}`);
+        }
+    }
+
+    /**
+     * Obtiene todos los grupos únicos registrados en el sistema.
+     */
+    async getTodosLosGrupos() {
+        try {
+            const querySnapshot = await getDocs(collection(db, this.collectionName));
+            const grupos = new Set();
+            querySnapshot.docs.forEach(doc => {
+                const data = doc.data();
+                if (data.grupo) grupos.add(data.grupo);
+            });
+            return Array.from(grupos).sort();
+        } catch (error) {
+            throw new Error(`Error al obtener grupos: ${error.message}`);
         }
     }
 
