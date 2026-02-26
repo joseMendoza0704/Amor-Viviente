@@ -12,7 +12,6 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         // Suscribirse a cambios de Firebase Auth
         const unsubscribe = AuthService.subscribeToAuthChanges(async (firebaseUser) => {
-            console.log("Firebase Auth User:", firebaseUser?.uid, firebaseUser?.email);
             setLoading(true);
             setError(null);
 

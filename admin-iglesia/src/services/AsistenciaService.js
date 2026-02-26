@@ -88,10 +88,25 @@ class AsistenciaService {
      * @param {string} id - ID del documento.
      * @param {object} data - Datos a actualizar.
      */
+    /**
+     * Actualiza un registro de asistencia específico.
+     * @param {string} id - ID del documento.
+     * @param {object} data - Datos a actualizar.
+     */
     async updateAsistencia(id, data) {
         const { updateDoc, doc } = await import("firebase/firestore");
         const docRef = doc(db, this.collectionName, id);
         return await updateDoc(docRef, data);
+    }
+
+    /**
+     * Elimina un registro de asistencia específico.
+     * @param {string} id - ID del documento.
+     */
+    async deleteAsistencia(id) {
+        const { deleteDoc, doc } = await import("firebase/firestore");
+        const docRef = doc(db, this.collectionName, id);
+        return await deleteDoc(docRef);
     }
 }
 

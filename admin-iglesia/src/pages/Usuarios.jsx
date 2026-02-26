@@ -148,7 +148,8 @@ const NuevoUsuarioModal = ({ isOpen, onClose, onSave, loading }) => {
                         <div className="grid grid-cols-2 gap-3">
                             {[
                                 { value: 'lider', label: '👤 Líder', desc: 'Acceso a sus grupos' },
-                                { value: 'admin', label: '🛡️ Admin', desc: 'Acceso total' }
+                                { value: 'pastor', label: '📖 Pastor', desc: 'Acceso total a datos' },
+                                { value: 'admin', label: '🛡️ Admin', desc: 'Configuración total' }
                             ].map(opt => (
                                 <button
                                     key={opt.value}
@@ -377,9 +378,9 @@ const Usuarios = () => {
                                     <p className="text-slate-400 text-xs font-bold truncate mb-4 uppercase tracking-tighter">{user.correo}</p>
                                     <span className={clsx(
                                         "px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border",
-                                        user.rol === 'admin'
-                                            ? "bg-amber-50 text-amber-600 border-amber-100"
-                                            : "bg-blue-50 text-blue-600 border-blue-100"
+                                        user.rol === 'admin' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                                            user.rol === 'pastor' ? "bg-purple-50 text-purple-600 border-purple-100" :
+                                                "bg-blue-50 text-blue-600 border-blue-100"
                                     )}>
                                         {user.rol || 'Líder'}
                                     </span>

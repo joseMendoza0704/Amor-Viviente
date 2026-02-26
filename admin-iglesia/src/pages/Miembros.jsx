@@ -160,11 +160,66 @@ const Miembros = () => {
         }
     };
 
+    const MiembroCardMobile = ({ miembro }) => (
+        <div
+            onClick={() => handleOpenEdit(miembro)}
+            className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm active:scale-[0.98] transition-all relative overflow-hidden"
+        >
+            <div className="flex items-start gap-4 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 font-black border border-slate-100 uppercase text-sm shrink-0">
+                    {miembro.nombre.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                    <p className="font-black text-slate-800 text-lg leading-tight truncate">{miembro.nombre}</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{miembro.grupo}</p>
+                    <div className="flex items-center gap-2 mt-2">
+                        <Phone size={10} className="text-slate-300" />
+                        <span className="text-[11px] text-slate-500 font-bold">{miembro.telefono || 'Sin teléfono'}</span>
+                    </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                    <StatusPill status={miembro.estadoSeguimiento} />
+                </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                <div className="flex gap-1">
+                    {miembro.historialAsistencia?.slice(-5).map((item, id) => (
+                        <AttendanceSquare key={id} item={item} />
+                    ))}
+                </div>
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId(openMenuId === miembro.id ? null : miembro.id);
+                    }}
+                    className="p-2 bg-slate-50 rounded-xl text-slate-400"
+                >
+                    <MoreVertical size={18} />
+                </button>
+            </div>
+
+            {/* Menu Dropdown - Ajustado para móvil */}
+            {openMenuId === miembro.id && (
+                <div className="absolute right-4 bottom-16 z-10 bg-white rounded-2xl shadow-2xl border border-slate-100 p-1 animate-in slide-in-from-bottom-2 duration-200">
+                    <button onClick={(e) => { e.stopPropagation(); handleCorreccionAsistencia(miembro); setOpenMenuId(null); }} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600">
+                        <CheckCircle2 size={14} className="text-green-500" /> Corregir Asistencia
+                    </button>
+                    {profile?.rol === 'admin' && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDeactivate(miembro.id); }} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-red-500">
+                            <UserMinus size={14} /> Dar de baja
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+
     const renderFilaMiembro = (miembro, isServidor) => (
         <tr
             key={miembro.id}
             onDoubleClick={() => handleOpenEdit(miembro)}
-            className="hover:bg-blue-50/20 transition-all group cursor-pointer select-none"
+            className="hover:bg-blue-50/20 transition-all group cursor-pointer select-none hidden md:table-row"
         >
             <td className="px-10 py-8">
                 <div className="flex items-center gap-5">
@@ -220,7 +275,7 @@ const Miembros = () => {
                     }}
                     className="w-10 h-10 mx-auto rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-all shadow-sm"
                 >
-                    <MoreVertical size={20} />
+                    < MoreVertical size={20} />
                 </button>
 
                 {/* Dropdown Menu Unificado */}
@@ -245,14 +300,18 @@ const Miembros = () => {
                             <CheckCircle2 size={18} className="text-green-500" />
                             Corregir Asistencia
                         </button>
-                        <div className="my-1.5 border-t border-slate-50" />
-                        <button
-                            onClick={() => handleDeactivate(miembro.id)}
-                            className="w-full flex items-center gap-3.5 px-4 py-3.5 text-[13px] font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors text-left"
-                        >
-                            <UserMinus size={18} />
-                            Dar de baja
-                        </button>
+                        {profile?.rol === 'admin' && (
+                            <>
+                                <div className="my-1.5 border-t border-slate-50" />
+                                <button
+                                    onClick={() => handleDeactivate(miembro.id)}
+                                    className="w-full flex items-center gap-3.5 px-4 py-3.5 text-[13px] font-bold text-red-500 hover:bg-red-50 rounded-xl transition-colors text-left"
+                                >
+                                    <UserMinus size={18} />
+                                    Dar de baja
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
             </td>
@@ -290,7 +349,7 @@ const Miembros = () => {
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Directorio CRM</h1>
+                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Congregantes</h1>
                     <div className="flex items-center gap-2 mt-2">
                         <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Gestionando:</p>
                         {listaGrupos.length > 1 || profile?.isAdmin ? (
@@ -299,7 +358,7 @@ const Miembros = () => {
                                 onChange={(e) => setFiltroGrupo(e.target.value)}
                                 className="bg-slate-100 px-3 py-1 rounded-lg border-none outline-none text-primary font-bold text-[11px] cursor-pointer hover:bg-slate-200 transition-colors"
                             >
-                                {profile?.isAdmin && <option value="">Todos los grupos</option>}
+                                {(profile?.isAdmin || profile?.rol === 'admin' || profile?.rol === 'pastor') && <option value="">Todos los grupos</option>}
                                 {listaGrupos.map(g => (
                                     <option key={g} value={g}>{g}</option>
                                 ))}
@@ -351,11 +410,13 @@ const Miembros = () => {
             {/* Tabla de Servidores (Líder, Asistente, Tesorero) */}
             {servidores.length > 0 && (
                 <div className="mb-12">
-                    <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2">
+                    <h3 className="text-xl font-black text-slate-800 mb-6 flex items-center gap-2 px-2 md:px-0">
                         <Crown className="text-amber-500" size={24} />
                         Servidores del Grupo
                     </h3>
-                    <div className="bg-white rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 overflow-hidden">
+
+                    {/* Vista Desktop */}
+                    <div className="hidden md:block bg-white rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-50 overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="w-full text-left border-separate border-spacing-0">
                                 <thead>
@@ -368,7 +429,7 @@ const Miembros = () => {
                                                 <select
                                                     value={filtroMes}
                                                     onChange={(e) => setFiltroMes(parseInt(e.target.value))}
-                                                    className="bg-amber-100/50 hover:bg-amber-100 px-3 py-1.5 rounded-xl border-none outline-none text-amber-700 cursor-pointer lowercase first-letter:uppercase transition-all font-black text-[11px]"
+                                                    className="bg-amber-100/50 px-3 py-1.5 rounded-xl border-none outline-none text-amber-700 cursor-pointer font-black text-[11px] uppercase tracking-tighter"
                                                 >
                                                     {MESES.map((mes, idx) => (
                                                         <option key={idx} value={idx}>{mes}</option>
@@ -386,6 +447,13 @@ const Miembros = () => {
                             </table>
                         </div>
                     </div>
+
+                    {/* Vista Móvil */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                        {servidores.map(m => (
+                            <MiembroCardMobile key={m.id} miembro={m} />
+                        ))}
+                    </div>
                 </div>
             )}
 
@@ -395,7 +463,8 @@ const Miembros = () => {
                     <Users className="text-primary" size={24} />
                     Congregantes
                 </h3>
-                <div className="bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-slate-50 overflow-hidden">
+                {/* Vista Desktop */}
+                <div className="hidden md:block bg-white rounded-[3rem] shadow-2xl shadow-slate-200/50 border border-slate-50 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-separate border-spacing-0">
                             <thead>
@@ -408,7 +477,7 @@ const Miembros = () => {
                                             <select
                                                 value={filtroMes}
                                                 onChange={(e) => setFiltroMes(parseInt(e.target.value))}
-                                                className="bg-slate-100/50 hover:bg-slate-100 px-3 py-1.5 rounded-xl border-none outline-none text-primary cursor-pointer lowercase first-letter:uppercase transition-all font-black text-[11px]"
+                                                className="bg-slate-100/50 px-3 py-1.5 rounded-xl border-none outline-none text-primary cursor-pointer font-black text-[11px] uppercase tracking-tighter"
                                             >
                                                 {MESES.map((mes, idx) => (
                                                     <option key={idx} value={idx}>{mes}</option>
@@ -417,8 +486,7 @@ const Miembros = () => {
                                         </div>
                                     </th>
                                     <th className="px-10 py-7 text-[12px] font-black text-slate-400 uppercase tracking-[0.2em]">Estado</th>
-
-                                    <th className="px-10 py-7 text-[12px] font-black text-slate-400 uppercase tracking-[0.2em] text-center"></th>
+                                    <th className="px-10 py-7"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50/50">
@@ -441,25 +509,39 @@ const Miembros = () => {
                     </div>
                 </div>
 
-                {/* Modal CRUD */}
-                <MiembroModal
-                    isOpen={isModalOpen}
-                    onClose={() => setIsModalOpen(false)}
-                    onSave={handleSave}
-                    member={selectedMember}
-                    loading={actionLoading}
-                    rolesOcupados={rolesOcupados}
-                />
-
-                {/* Modal de Asistencia */}
-                <AsistenciaModal
-                    isOpen={isAsistenciaModalOpen}
-                    onClose={() => setIsAsistenciaModalOpen(false)}
-                    member={memberForAsistencia}
-                    asistencias={asistencias}
-                    onUpdateMemberAsistencia={actualizarAsistenciaMiembro}
-                />
+                {/* Vista Móvil */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                    {congregantes.length > 0 ? (
+                        congregantes.map(m => (
+                            <MiembroCardMobile key={m.id} miembro={m} />
+                        ))
+                    ) : (
+                        <div className="py-20 text-center bg-white rounded-[3rem] border border-slate-100 col-span-full">
+                            <Users size={48} className="text-slate-100 mx-auto mb-4" />
+                            <p className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Sin resultados</p>
+                        </div>
+                    )}
+                </div>
             </div>
+
+            {/* Modal CRUD */}
+            <MiembroModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSave={handleSave}
+                member={selectedMember}
+                loading={actionLoading}
+                rolesOcupados={rolesOcupados}
+            />
+
+            {/* Modal de Asistencia */}
+            <AsistenciaModal
+                isOpen={isAsistenciaModalOpen}
+                onClose={() => setIsAsistenciaModalOpen(false)}
+                member={memberForAsistencia}
+                asistencias={asistencias}
+                onUpdateMemberAsistencia={actualizarAsistenciaMiembro}
+            />
         </div>
     );
 };

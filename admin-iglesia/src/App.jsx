@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import Miembros from './pages/Miembros'
 import Usuarios from './pages/Usuarios'
 import Programa from './pages/Programa'
+import Asistencia from './pages/Asistencia'
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -54,10 +55,7 @@ function App() {
         <Route path="/asistencias" element={
           <PrivateRoute>
             <MainLayout>
-              <div className="text-center py-20">
-                <h2 className="text-2xl font-bold text-slate-800">Módulo de Asistencias</h2>
-                <p className="text-slate-500">Próximamente disponible.</p>
-              </div>
+              <Asistencia />
             </MainLayout>
           </PrivateRoute>
         } />
@@ -70,16 +68,6 @@ function App() {
           </PrivateRoute>
         } />
 
-        <Route path="/inventario" element={
-          <PrivateRoute>
-            <MainLayout>
-              <div className="text-center py-20">
-                <h2 className="text-2xl font-bold text-slate-800">Módulo de Inventario</h2>
-                <p className="text-slate-500">Próximamente disponible.</p>
-              </div>
-            </MainLayout>
-          </PrivateRoute>
-        } />
 
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />

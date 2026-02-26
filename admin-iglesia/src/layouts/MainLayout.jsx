@@ -25,14 +25,28 @@ const SidebarItem = ({ to, icon: Icon, label, onClick }) => (
         to={to}
         onClick={onClick}
         className={({ isActive }) => cn(
-            "flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group",
+            "flex items-center gap-3 px-4 py-3 rounded-2xl transition-all duration-300 group selection:bg-transparent",
             isActive
-                ? "bg-primary text-white shadow-md shadow-blue-200"
-                : "text-slate-400 hover:bg-slate-100 hover:text-slate-900"
+                ? "bg-primary text-white shadow-lg shadow-blue-200 scale-[1.02]"
+                : "text-slate-400 hover:bg-slate-50 hover:text-primary"
         )}
     >
-        <Icon size={20} className={cn("transition-colors", "group-hover:text-primary")} />
-        <span className="font-medium">{label}</span>
+        <Icon size={20} className={cn("transition-transform duration-300 group-hover:scale-110")} />
+        <span className="font-bold text-sm tracking-tight">{label}</span>
+    </NavLink>
+);
+
+const BottomNavItem = ({ to, icon: Icon, label }) => (
+    <NavLink to={to} className="flex-1">
+        {({ isActive }) => (
+            <div className={cn(
+                "flex flex-col items-center justify-center gap-1 w-full py-2 transition-all duration-300",
+                isActive ? "text-primary scale-110" : "text-slate-400"
+            )}>
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                <span className="text-[10px] font-black uppercase tracking-tighter">{label}</span>
+            </div>
+        )}
     </NavLink>
 );
 
@@ -58,9 +72,9 @@ const MainLayout = ({ children }) => {
                 />
             )}
 
-            {/* Sidebar */}
+            {/* Sidebar Desktop */}
             <aside className={cn(
-                "fixed inset-y-0 left-0 z-30 w-72 bg-white border-r border-slate-200 transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0",
+                "fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 transform transition-transform duration-500 ease-in-out md:relative md:translate-x-0 hidden md:block",
                 isSidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="flex flex-col h-full p-6">
@@ -77,11 +91,12 @@ const MainLayout = ({ children }) => {
                     {/* Nav Links */}
                     <nav className="flex-1 space-y-2">
                         <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" onClick={() => setIsSidebarOpen(false)} />
-                        <SidebarItem to="/miembros" icon={Users} label="Directorio CRM" onClick={() => setIsSidebarOpen(false)} />
+                        <SidebarItem to="/miembros" icon={Users} label="Congregantes" onClick={() => setIsSidebarOpen(false)} />
                         <SidebarItem to="/programa" icon={Calendar} label="Programa" onClick={() => setIsSidebarOpen(false)} />
-                        <SidebarItem to="/asistencias" icon={CheckSquare} label="Asistencias" onClick={() => setIsSidebarOpen(false)} />
-                        <SidebarItem to="/inventario" icon={Package} label="Inventario" onClick={() => setIsSidebarOpen(false)} />
-                        {isAdmin && (
+                        {(profile?.rol === 'Líder' || isAdmin) && (
+                            <SidebarItem to="/asistencias" icon={CheckSquare} label="Asistencias" onClick={() => setIsSidebarOpen(false)} />
+                        )}
+                        {profile?.rol === 'admin' && (
                             <SidebarItem to="/usuarios" icon={UserCog} label="Configuración Usuarios" onClick={() => setIsSidebarOpen(false)} />
                         )}
                     </nav>
@@ -109,23 +124,77 @@ const MainLayout = ({ children }) => {
             </aside >
 
             {/* Main Content Area */}
-            < div className="flex-1 flex flex-col min-w-0 overflow-hidden" >
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
                 {/* Top Navbar (Mobile only header) */}
-                < header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200" >
+                <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200">
                     <span className="font-bold text-slate-900">Amor Viviente</span>
                     <button onClick={toggleSidebar} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg">
                         {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
                     </button>
-                </header >
+                </header>
 
                 {/* Dynamic Content */}
-                < main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10" >
-                    <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <main className="flex-1 overflow-y-auto p-4 md:p-8 lg:p-10 pb-24 md:pb-10">
+                    <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-8 duration-700">
                         {children}
                     </div>
-                </main >
-            </div >
-        </div >
+                </main>
+
+                {/* Bottom Navigation (Mobile Only) */}
+                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 px-2 pb-safe pt-2 flex items-center justify-around z-50 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+                    <BottomNavItem to="/" icon={LayoutDashboard} label="Inicio" />
+                    <BottomNavItem to="/miembros" icon={Users} label="Gente" />
+                    <BottomNavItem to="/asistencias" icon={CheckSquare} label="Lista" />
+                    <BottomNavItem to="/programa" icon={Calendar} label="Prog." />
+                    <button
+                        onClick={toggleSidebar}
+                        className="flex flex-col items-center justify-center gap-1 flex-1 py-2 text-slate-400"
+                    >
+                        <Menu size={20} />
+                        <span className="text-[10px] font-black uppercase tracking-tighter">Más</span>
+                    </button>
+                </nav>
+
+                {/* Sidebar Móvil (Drawer) */}
+                {isSidebarOpen && (
+                    <div className="fixed inset-0 z-[100] md:hidden">
+                        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300" onClick={toggleSidebar} />
+                        <div className="absolute right-0 top-0 bottom-0 w-[280px] bg-white shadow-2xl animate-in slide-in-from-right duration-500 p-6 flex flex-col">
+                            <div className="flex justify-between items-center mb-8">
+                                <span className="font-black text-slate-900 uppercase tracking-widest text-xs">Menú</span>
+                                <button onClick={toggleSidebar} className="p-2 bg-slate-50 rounded-full">
+                                    <X size={20} />
+                                </button>
+                            </div>
+
+                            <div className="flex-1 space-y-2">
+                                {profile?.rol === 'admin' && (
+                                    <SidebarItem to="/usuarios" icon={UserCog} label="Usuarios" onClick={toggleSidebar} />
+                                )}
+                                <div className="pt-4 mt-4 border-t border-slate-50">
+                                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl mb-4">
+                                        <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-primary shadow-sm">
+                                            <User size={20} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-black text-slate-900 truncate uppercase tracking-tighter">{profile?.nombre || user?.email}</p>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{profile?.rol || 'Líder'}</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="flex items-center gap-3 w-full px-4 py-4 text-red-500 bg-red-50/50 hover:bg-red-50 rounded-2xl transition-all font-black uppercase tracking-widest text-[10px]"
+                                    >
+                                        <LogOut size={18} />
+                                        <span>Cerrar Sesión</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
     );
 };
 
