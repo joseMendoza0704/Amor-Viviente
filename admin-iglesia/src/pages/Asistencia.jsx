@@ -24,7 +24,7 @@ import { clsx } from 'clsx';
 
 const Asistencia = () => {
     const { profile } = useAuth();
-    const { miembros, loading: loadingMiembros, listaGrupos } = useMiembros();
+    const { miembros, loading: loadingMiembros, listaGrupos, setFiltroGrupo } = useMiembros();
 
     // Estados internos
     const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
@@ -36,18 +36,19 @@ const Asistencia = () => {
     const [saving, setSaving] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
     const [error, setError] = useState(null);
+    const [reporteCargado, setReporteCargado] = useState(null); // Guardar data del doc cargado
 
     // Estados para el modal de eliminación
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [idToDelete, setIdToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Efecto para inicializar grupo e historial
+    // 1. Efecto inicial: Sincronizar grupo desde el perfil del usuario
     useEffect(() => {
         if (profile?.grupoAsignado && !grupoSel) {
             setGrupoSel(profile.grupoAsignado);
         }
-    }, [profile, grupoSel]);
+    }, [profile?.grupoAsignado, grupoSel]);
 
     // Cargar historial de reportes (últimos 10) con filtro de validez
     const cargarHistorial = async () => {
@@ -62,46 +63,107 @@ const Asistencia = () => {
         }
     };
 
+    // 2. Sincronizar filtros con el hook y cargar historial cuando cambie el grupo
     useEffect(() => {
-        cargarHistorial();
-    }, [grupoSel, successMsg]);
+        if (grupoSel) {
+            setFiltroGrupo(grupoSel);
+            cargarHistorial();
+        }
+    }, [grupoSel, successMsg, setFiltroGrupo]);
 
-    // Cargar reporte específico si existe para la fecha seleccionada
+    // 3. Cargar reporte específico para la fecha seleccionada
     useEffect(() => {
         const cargarReporteExistente = async () => {
-            if (!grupoSel || !fecha) return;
+            if (!grupoSel || !fecha || loadingMiembros) return;
 
             setLoadingReporte(true);
             try {
-                const { doc, getDoc } = await import('firebase/firestore');
+                const { collection, query, where, getDocs } = await import('firebase/firestore');
                 const { db } = await import('../config/firebase');
-                const docId = `${grupoSel}_${fecha}`;
-                const docRef = doc(db, "asistencia-iglesia", docId);
-                const snap = await getDoc(docRef);
 
-                if (snap.exists()) {
-                    const data = snap.data();
+                // 1. Intentar buscar por el formato estándar YYYY-MM-DD
+                const qStandard = query(
+                    collection(db, "asistencia-iglesia"),
+                    where("grupo", "==", grupoSel),
+                    where("fecha", "==", fecha)
+                );
+
+                let snap = await getDocs(qStandard);
+                let data = null;
+
+                if (!snap.empty) {
+                    data = snap.docs[0].data();
+                } else {
+                    // 2. Fallback: Buscar por fecha amplia (basada en el timestamp) 
+                    // si no se encuentra por el campo 'fecha' exacto.
+                    // Esto ayuda si la fecha se guardó como "Sun Feb 08..." o similar.
+                    const dateObj = new Date(fecha + 'T12:00:00');
+                    const inicioDia = new Date(dateObj);
+                    inicioDia.setHours(0, 0, 0, 0);
+                    const finDia = new Date(dateObj);
+                    finDia.setHours(23, 59, 59, 999);
+
+                    const { Timestamp } = await import('firebase/firestore');
+                    const qTimestamp = query(
+                        collection(db, "asistencia-iglesia"),
+                        where("grupo", "==", grupoSel),
+                        where("timestamp", ">=", Timestamp.fromDate(inicioDia)),
+                        where("timestamp", "<=", Timestamp.fromDate(finDia))
+                    );
+
+                    const snapTS = await getDocs(qTimestamp);
+                    if (!snapTS.empty) {
+                        data = snapTS.docs[0].data();
+                    }
+                }
+
+                if (data) {
                     const nuevoMap = {};
 
-                    // Mapear presentes
+                    // Helper para encontrar ID por nombre si no viene en el reporte
+                    const findIdByName = (name) => {
+                        const m = miembros.find(mem => mem.nombre?.toLowerCase() === name?.toLowerCase());
+                        return m ? m.id : null;
+                    };
+
+                    // 1. Mapear Formato Nuevo (Objetos con ID)
                     (data.presentes || []).forEach(p => {
-                        nuevoMap[p.id] = { estado: 'presente', observacion: p.observacion || '' };
+                        const mid = p.id || findIdByName(p.nombre || p);
+                        if (mid) nuevoMap[mid] = { estado: 'presente', observacion: p.observacion || '' };
                     });
 
-                    // Mapear ausentes
                     (data.ausentes || []).forEach(a => {
-                        nuevoMap[a.id] = { estado: 'ausente', observacion: a.observacion || '' };
+                        const mid = a.id || findIdByName(a.nombre || a);
+                        if (mid) nuevoMap[mid] = { estado: 'ausente', observacion: a.observacion || '' };
                     });
 
-                    // Mapear excusados
                     (data.excusados || []).forEach(e => {
-                        nuevoMap[e.id] = { estado: 'excusado', observacion: e.observacion || '' };
+                        const mid = e.id || findIdByName(e.nombre || e);
+                        if (mid) nuevoMap[mid] = { estado: 'excusado', observacion: e.observacion || '' };
+                    });
+
+                    // 2. Soporte Híbrido: Formato Antiguo (Listas de nombres)
+                    // Solo si el miembro no fue ya procesado por el formato nuevo
+                    (data.miembros || []).forEach(nombre => {
+                        const mid = findIdByName(nombre);
+                        if (mid && !nuevoMap[mid]) {
+                            nuevoMap[mid] = { estado: 'presente', observacion: '' };
+                        }
+                    });
+
+                    (data.justificados || []).forEach(nombre => {
+                        const mid = findIdByName(nombre);
+                        if (mid && !nuevoMap[mid]) {
+                            nuevoMap[mid] = { estado: 'excusado', observacion: '' };
+                        }
                     });
 
                     setAsistenciasMap(nuevoMap);
+                    setReporteCargado(data);
                 } else {
                     // Resetear si no existe reporte para esa fecha
                     setAsistenciasMap({});
+                    setReporteCargado(null);
                 }
             } catch (err) {
                 console.error("Error al cargar reporte:", err);
@@ -111,7 +173,7 @@ const Asistencia = () => {
         };
 
         cargarReporteExistente();
-    }, [fecha, grupoSel]);
+    }, [fecha, grupoSel, loadingMiembros, miembros]);
 
     // Filtrar miembros por grupo y búsqueda
     const miembrosFiltrados = useMemo(() => {
@@ -122,6 +184,45 @@ const Asistencia = () => {
             return matchGrupo && matchSearch && esActivo;
         });
     }, [miembros, grupoSel, searchTerm]);
+
+    // 4. Identificar miembros que están en el reporte pero no en la lista filtrada del grupo
+    const miembrosExtra = useMemo(() => {
+        if (!reporteCargado) return [];
+
+        const idsEnGrupo = new Set(miembrosFiltrados.map(m => m.id));
+        const extras = [];
+
+        // Revisar todas las entradas de asistencia cargadas
+        Object.entries(asistenciasMap).forEach(([id, data]) => {
+            if (!idsEnGrupo.has(id)) {
+                // Buscar si existe en la lista global de miembros
+                const mGlobal = miembros.find(m => m.id === id);
+                if (mGlobal) {
+                    extras.push({ ...mGlobal, esExtra: true });
+                } else {
+                    // Si no existe (borrado o solo nombre), intentar sacar info del reporte
+                    const encontrarEnLista = (lista) => lista?.find(item => (item.id === id || item.nombre === id || item === id));
+                    const infoOrig = encontrarEnLista(reporteCargado.presentes) ||
+                        encontrarEnLista(reporteCargado.ausentes) ||
+                        encontrarEnLista(reporteCargado.excusados) ||
+                        reporteCargado.miembros?.find(n => n === id) ||
+                        reporteCargado.justificados?.find(n => n === id);
+
+                    extras.push({
+                        id,
+                        nombre: infoOrig?.nombre || (typeof infoOrig === 'string' ? infoOrig : id),
+                        grupo: 'Fuera de este grupo',
+                        esExtra: true,
+                        esInactivo: true
+                    });
+                }
+            }
+        });
+        return extras;
+    }, [asistenciasMap, miembrosFiltrados, reporteCargado, miembros]);
+
+    // Combinar para los conteos y la UI
+    const todosLosMiembrosVisibles = useMemo(() => [...miembrosFiltrados, ...miembrosExtra], [miembrosFiltrados, miembrosExtra]);
 
     // Handlers
     const setEstadoAsistencia = (id, nuevoEstado) => {
@@ -134,7 +235,7 @@ const Asistencia = () => {
     const setObservacion = (id, text) => {
         setAsistenciasMap(prev => ({
             ...prev,
-            [id]: { ...(prev[id] || { asistio: false }), observacion: text }
+            [id]: { ...(prev[id] || { estado: 'ausente' }), observacion: text }
         }));
     };
 
@@ -152,7 +253,8 @@ const Asistencia = () => {
             const ausentes = [];
             const excusados = [];
 
-            miembrosFiltrados.forEach(m => {
+            // Procesar todos los miembros que se ven en pantalla
+            todosLosMiembrosVisibles.forEach(m => {
                 const data = asistenciasMap[m.id];
                 const info = {
                     id: m.id,
@@ -166,13 +268,11 @@ const Asistencia = () => {
                 else ausentes.push(info);
             });
 
-            // Registrar en Firestore (Suponiendo que AsistenciaService tenga un createAsistencia)
-            // Por ahora usaremos el patrón de guardar un documento por grupo/fecha
+            // Registrar en Firestore
             const { serverTimestamp, Timestamp } = await import('firebase/firestore');
             const { doc, setDoc } = await import('firebase/firestore');
             const { db } = await import('../config/firebase');
 
-            // Crear fecha al mediodía local para evitar saltos de día por zona horaria (UTC shifts)
             const dateObj = new Date(fecha + 'T12:00:00');
             const docId = `${grupoSel}_${fecha}`;
             const docRef = doc(db, "asistencia-iglesia", docId);
@@ -233,15 +333,16 @@ const Asistencia = () => {
         }
     };
 
-    const esAdmin = profile?.rol === 'admin';
-    const esPastor = profile?.rol === 'pastor';
-    const esLider = profile?.rol === 'Líder' || profile?.rol === 'lider';
+    const rol = profile?.rol?.toLowerCase() || '';
+    const esAdmin = profile?.isAdmin || rol === 'admin';
+    const esPastor = rol === 'pastor';
+    const esLider = rol === 'líder' || rol === 'lider';
     const tienePermisoEscritura = esAdmin || esPastor || esLider;
-    const tienePermisoBorrado = esAdmin; // Solo el admin puede borrar según requerimiento
+    const tienePermisoBorrado = esAdmin || esPastor; // Permitir a Admin y Pastor borrar
 
-    const totalMiembros = miembrosFiltrados.length;
-    const conteoPresentes = miembrosFiltrados.filter(m => asistenciasMap[m.id]?.estado === 'presente').length;
-    const conteoExcusados = miembrosFiltrados.filter(m => asistenciasMap[m.id]?.estado === 'excusado').length;
+    const totalMiembros = todosLosMiembrosVisibles.length;
+    const conteoPresentes = todosLosMiembrosVisibles.filter(m => asistenciasMap[m.id]?.estado === 'presente').length;
+    const conteoExcusados = todosLosMiembrosVisibles.filter(m => asistenciasMap[m.id]?.estado === 'excusado').length;
     const conteoAusentes = totalMiembros - conteoPresentes - conteoExcusados;
 
     if (loadingMiembros) return (
@@ -259,16 +360,7 @@ const Asistencia = () => {
         </div>
     );
 
-    if (!tienePermiso) return (
-        <div className="bg-rose-50 border border-rose-100 rounded-[3rem] p-12 text-center max-w-2xl mx-auto shadow-2xl shadow-rose-200/20">
-            <UserX size={48} className="text-rose-500 mx-auto mb-6" />
-            <h2 className="text-2xl font-black text-slate-900 mb-4">Acceso Restringido</h2>
-            <p className="text-slate-600 mb-8 font-medium italic">
-                Solo los Líderes de grupo tienen autorización para registrar la asistencia.
-                Si crees que esto es un error, contacta al administrador.
-            </p>
-        </div>
-    );
+
 
     return (
         <div className="space-y-8 pb-20">
@@ -384,82 +476,89 @@ const Asistencia = () => {
                 </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {miembrosFiltrados.length > 0 ? (
-                        miembrosFiltrados.map((m) => {
+                    {todosLosMiembrosVisibles.length > 0 ? (
+                        todosLosMiembrosVisibles.map((m) => {
                             const estado = asistenciasMap[m.id]?.estado || 'ausente';
+                            const esExtra = m.esExtra;
                             return (
                                 <div
                                     key={m.id}
                                     className={clsx(
-                                        "relative bg-white rounded-[2rem] p-6 border transition-all group select-none overflow-hidden",
+                                        "relative bg-white rounded-[1.5rem] p-4 border transition-all group select-none overflow-hidden flex flex-col justify-between",
                                         estado === 'presente' && "border-green-100 ring-4 ring-green-500/5 shadow-xl shadow-green-100/40",
                                         estado === 'excusado' && "border-amber-100 ring-4 ring-amber-500/5 shadow-xl shadow-amber-100/40",
-                                        estado === 'ausente' && "border-slate-50 shadow-sm"
+                                        estado === 'ausente' && "border-slate-50 shadow-sm",
+                                        esExtra && "opacity-90"
                                     )}
                                 >
-                                    <div className="flex items-center gap-4 mb-5">
+                                    {esExtra && (
+                                        <div className="absolute top-0 right-0 bg-slate-100 text-slate-500 text-[8px] font-black px-3 py-1 rounded-bl-xl uppercase tracking-tighter">
+                                            Histórico / Externo
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-3 mb-3">
                                         <div className={clsx(
-                                            "w-12 h-12 rounded-full flex items-center justify-center text-sm font-black transition-colors",
+                                            "w-10 h-10 rounded-xl flex items-center justify-center text-xs font-black transition-colors shrink-0 shadow-sm",
                                             estado === 'presente' ? "bg-green-500 text-white" :
                                                 estado === 'excusado' ? "bg-amber-500 text-white" :
                                                     "bg-slate-100 text-slate-400"
                                         )}>
-                                            {m.nombre.charAt(0).toUpperCase()}
+                                            {m.nombre?.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className={clsx(
-                                                "font-black text-[15px] truncate",
+                                                "font-black text-[13px] truncate uppercase tracking-tight",
                                                 estado === 'presente' ? "text-green-700" :
                                                     estado === 'excusado' ? "text-amber-700" :
                                                         "text-slate-700"
                                             )}>
                                                 {m.nombre}
                                             </p>
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{m.grupo}</p>
+                                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{m.grupo}</p>
                                         </div>
                                     </div>
 
-                                    {/* Selector de estados */}
-                                    <div className="flex gap-2 mb-4 p-1 bg-slate-50/50 rounded-2xl border border-slate-100">
+                                    {/* Selector de estados optimizado */}
+                                    <div className="flex gap-1.5 mb-3 p-1 bg-slate-50/50 rounded-xl border border-slate-100">
                                         <button
                                             onClick={() => setEstadoAsistencia(m.id, 'presente')}
                                             className={clsx(
-                                                "flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all flex items-center justify-center gap-1",
-                                                estado === 'presente' ? "bg-green-500 text-white shadow-lg shadow-green-200" : "text-slate-400 hover:bg-white"
+                                                "flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tighter transition-all flex items-center justify-center gap-1",
+                                                estado === 'presente' ? "bg-green-500 text-white shadow-md shadow-green-200" : "text-slate-400 hover:bg-white"
                                             )}
                                         >
-                                            {estado === 'presente' ? <CheckCircle2 size={12} /> : <div className="w-3" />}
-                                            Presente
+                                            {estado === 'presente' && <CheckCircle2 size={10} />}
+                                            Pres.
                                         </button>
                                         <button
                                             onClick={() => setEstadoAsistencia(m.id, 'excusado')}
                                             className={clsx(
-                                                "flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all flex items-center justify-center gap-1",
-                                                estado === 'excusado' ? "bg-amber-500 text-white shadow-lg shadow-amber-200" : "text-slate-400 hover:bg-white"
+                                                "flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tighter transition-all flex items-center justify-center gap-1",
+                                                estado === 'excusado' ? "bg-amber-500 text-white shadow-md shadow-amber-200" : "text-slate-400 hover:bg-white"
                                             )}
                                         >
-                                            {estado === 'excusado' ? <AlertCircle size={12} /> : <div className="w-3" />}
-                                            Excusado
+                                            {estado === 'excusado' && <AlertCircle size={10} />}
+                                            Exc.
                                         </button>
                                         <button
                                             onClick={() => setEstadoAsistencia(m.id, 'ausente')}
                                             className={clsx(
-                                                "flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-tighter transition-all flex items-center justify-center gap-1",
-                                                estado === 'ausente' ? "bg-red-500 text-white shadow-lg shadow-red-200" : "text-slate-400 hover:bg-white"
+                                                "flex-1 py-1.5 rounded-lg text-[8px] font-black uppercase tracking-tighter transition-all flex items-center justify-center gap-1",
+                                                estado === 'ausente' ? "bg-red-500 text-white shadow-md shadow-red-200" : "text-slate-400 hover:bg-white"
                                             )}
                                         >
-                                            {estado === 'ausente' ? <UserX size={12} /> : <div className="w-3" />}
-                                            Ausente
+                                            {estado === 'ausente' && <UserX size={10} />}
+                                            Aus.
                                         </button>
                                     </div>
 
                                     <div className="relative">
-                                        <MessageSquare className="absolute left-3 top-3 text-slate-300" size={14} />
+                                        <MessageSquare className="absolute left-2.5 top-2.5 text-slate-300" size={12} />
                                         <textarea
-                                            placeholder="Nota o petición..."
+                                            placeholder="Nota rápida..."
                                             value={asistenciasMap[m.id]?.observacion || ''}
                                             onChange={e => setObservacion(m.id, e.target.value)}
-                                            className="w-full bg-slate-50/50 border border-slate-100 rounded-xl pl-9 pr-4 py-2 text-[12px] font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all h-[50px] resize-none"
+                                            className="w-full bg-slate-50/30 border border-slate-100 rounded-lg pl-8 pr-3 py-2 text-[11px] font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-primary/10 transition-all h-[40px] resize-none"
                                         />
                                     </div>
                                 </div>

@@ -25,22 +25,22 @@ import {
 } from 'recharts';
 
 const StatCard = ({ title, value, icon: Icon, trend, trendValue, color }) => (
-    <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 relative overflow-hidden group">
-        <div className={clsx("absolute top-0 right-0 w-32 h-32 -mr-16 -mt-16 rounded-full opacity-[0.03] transition-transform group-hover:scale-110", color)} />
-        <div className="flex justify-between items-start mb-4">
-            <div className={clsx("p-3 rounded-2xl shadow-lg shadow-current/10", color)}>
-                <Icon size={24} className="text-white" />
+    <div className="bg-white p-4 md:p-6 rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/40 relative overflow-hidden group">
+        <div className={clsx("absolute top-0 right-0 w-24 h-24 -mr-12 -mt-12 rounded-full opacity-[0.03] transition-transform group-hover:scale-110", color)} />
+        <div className="flex justify-between items-start mb-2 md:mb-4">
+            <div className={clsx("p-2 md:p-3 rounded-xl md:rounded-2xl shadow-lg shadow-current/10", color)}>
+                <Icon size={20} className="md:w-6 md:h-6 text-white" />
             </div>
             {trend && (
-                <div className={clsx("flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg",
+                <div className={clsx("flex items-center gap-0.5 md:gap-1 text-[10px] md:text-xs font-bold px-1.5 py-0.5 md:px-2 md:py-1 rounded-lg",
                     trend === 'up' ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600")}>
-                    {trend === 'up' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                    {trend === 'up' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                     {trendValue}
                 </div>
             )}
         </div>
-        <p className="text-slate-500 text-sm font-semibold">{title}</p>
-        <h3 className="text-3xl font-extrabold text-slate-900 mt-1">{value}</h3>
+        <p className="text-slate-500 text-[10px] md:text-sm font-semibold truncate leading-tight">{title}</p>
+        <h3 className="text-xl md:text-3xl font-extrabold text-slate-900 mt-0.5 md:mt-1">{value}</h3>
     </div>
 );
 
@@ -103,8 +103,9 @@ const Dashboard = () => {
     }, [hoy]);
 
     // Se carga toda la info y se filtra localmente
-    const esAdmin = profile?.rol === 'admin';
-    const esPastor = profile?.rol === 'pastor';
+    const rol = profile?.rol?.toLowerCase() || '';
+    const esAdmin = rol === 'admin';
+    const esPastor = rol === 'pastor';
     const puedeVerTodo = esAdmin || esPastor;
     const { miembros, loading: loadingMiembros, error: errorMiembros, listaGrupos, filtroGrupo, setFiltroGrupo } = useMiembros();
     const { asistencias, loading: loadingAsistencias, error: errorAsistencias } = useAsistencias(puedeVerTodo ? (filtroGrupo || null) : (filtroGrupo || profile?.grupoAsignado), filtroMes, filtroAnio);
@@ -282,7 +283,7 @@ const Dashboard = () => {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                 <StatCard
                     title="Miembros Activos"
                     value={miembrosActivosHistorico}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import AuthService from '../services/AuthService';
 import MiembrosService from '../services/MiembrosService';
@@ -14,11 +14,14 @@ import {
     Square,
     X,
     Eye,
-    EyeOff
+    EyeOff,
+    Mail,
+    Key,
+    Edit
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
-// ─── Modal para crear un nuevo usuario ─────────────────────────────────────────
+// ─── Modal para crear un nuevo usuario (Auth + Firestore) ────────────────────
 const NuevoUsuarioModal = ({ isOpen, onClose, onSave, loading }) => {
     const [form, setForm] = useState({ nombre: '', correo: '', password: '', rol: 'lider' });
     const [showPassword, setShowPassword] = useState(false);
@@ -193,6 +196,98 @@ const NuevoUsuarioModal = ({ isOpen, onClose, onSave, loading }) => {
     );
 };
 
+// ─── Modal para editar credenciales de usuario (Solo referencia en Firestore) ──
+const EditarCredencialesModal = ({ isOpen, onClose, onSave, user, loading }) => {
+    const [form, setForm] = useState({ correo: '', password: '' });
+    const [showPassword, setShowPassword] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && user) {
+            setForm({
+                correo: user.correo || '',
+                password: user.password || ''
+            });
+            setShowPassword(false);
+        }
+    }, [isOpen, user]);
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave(form);
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md animate-in fade-in zoom-in duration-200">
+                <div className="px-10 pt-10 pb-6 border-b border-slate-50 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-900">Credenciales</h2>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                            Actualiza los datos de acceso para referencia
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="w-10 h-10 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 transition-all">
+                        <X size={18} />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="px-10 py-8 space-y-5">
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Email de Acceso</label>
+                        <div className="relative">
+                            <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type="email"
+                                value={form.correo}
+                                onChange={e => setForm(p => ({ ...p, correo: e.target.value }))}
+                                className="w-full pl-12 pr-5 py-3.5 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium text-slate-700 text-sm"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Contraseña Guardada</label>
+                        <div className="relative">
+                            <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                                type={showPassword ? 'text' : 'password'}
+                                value={form.password}
+                                onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                                className="w-full pl-12 pr-12 py-3.5 rounded-2xl border border-slate-100 bg-slate-50 focus:bg-white focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all font-medium text-slate-700 text-sm"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            >
+                                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                        </div>
+                        <p className="text-[9px] text-amber-500 font-bold mt-2 leading-tight">
+                            * Cambiar esto aquí solo actualiza la referencia para el admin. No cambia la contraseña real en Firebase Auth.
+                        </p>
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                        <button type="button" onClick={onClose} className="flex-1 py-3.5 rounded-2xl bg-slate-100 text-slate-600 font-black text-sm hover:bg-slate-200 transition-all">Cancelar</button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="flex-1 py-3.5 rounded-2xl bg-primary text-white font-black text-sm hover:bg-blue-600 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+                        >
+                            {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+                            Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 // ─── Página principal ───────────────────────────────────────────────────────────
 const Usuarios = () => {
     const { isAdmin, user: currentUser, refreshProfile } = useAuth();
@@ -209,6 +304,33 @@ const Usuarios = () => {
     // Modal nuevo usuario
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [creatingUser, setCreatingUser] = useState(false);
+
+    // Modal editar credenciales
+    const [isCredencialesModalOpen, setIsCredencialesModalOpen] = useState(false);
+    const [userForCreds, setUserForCreds] = useState(null);
+    const [updatingCreds, setUpdatingCreds] = useState(false);
+
+    // Visibilidad de contraseñas por usuario
+    const [showPasswordMap, setShowPasswordMap] = useState({});
+
+    const toggleShowPassword = (uid) => {
+        setShowPasswordMap(prev => ({ ...prev, [uid]: !prev[uid] }));
+    };
+
+    // Grupos ocupados por líderes (Restricción: 1 líder por grupo)
+    const occupiedGroups = useMemo(() => {
+        const map = {};
+        users.forEach(u => {
+            const userRol = u.rol?.toLowerCase() || '';
+            if (userRol === 'lider' || userRol === 'líder') {
+                const userGroups = u.listaGrupos || (u.grupoAsignado ? [u.grupoAsignado] : []);
+                userGroups.forEach(g => {
+                    map[g] = { uid: u.uid, nombre: u.nombre };
+                });
+            }
+        });
+        return map;
+    }, [users]);
 
     useEffect(() => {
         fetchInitialData();
@@ -249,6 +371,18 @@ const Usuarios = () => {
     };
 
     const toggleGroupAccess = async (user, grupo) => {
+        const userRol = user.rol?.toLowerCase() || '';
+        const isLider = userRol === 'lider' || userRol === 'líder';
+
+        // Validar si el grupo está ocupado por otro líder
+        if (isLider && !user.listaGrupos?.includes(grupo)) {
+            const ocupante = occupiedGroups[grupo];
+            if (ocupante && ocupante.uid !== user.uid) {
+                setError(`El grupo "${grupo}" ya está asignado al líder: ${ocupante.nombre}`);
+                return;
+            }
+        }
+
         setUpdatingId(`${user.uid}-${grupo}`);
         setError(null);
 
@@ -280,6 +414,42 @@ const Usuarios = () => {
             setError('Error al actualizar: ' + err.message);
         } finally {
             setUpdatingId(null);
+        }
+    };
+
+    const handleUpdateRol = async (user, nuevoRol) => {
+        if (user.rol === nuevoRol) return;
+        setUpdatingId(`${user.uid}-rol`);
+        setError(null);
+
+        try {
+            await AuthService.updateUserProfile(user.uid, { rol: nuevoRol });
+            setUsers(prev => prev.map(u => u.uid === user.uid ? { ...u, rol: nuevoRol } : u));
+            showSuccess(`Rol actualizado a ${nuevoRol}`);
+
+            if (user.uid === currentUser?.uid) {
+                await refreshProfile();
+            }
+        } catch (err) {
+            setError('Error al cambiar rol: ' + err.message);
+        } finally {
+            setUpdatingId(null);
+        }
+    };
+
+    const handleUpdateCredenciales = async (formData) => {
+        if (!userForCreds) return;
+        setUpdatingCreds(true);
+        setError(null);
+        try {
+            await AuthService.updateUserProfile(userForCreds.uid, formData);
+            setUsers(prev => prev.map(u => u.uid === userForCreds.uid ? { ...u, ...formData } : u));
+            setIsCredencialesModalOpen(false);
+            showSuccess('Credenciales actualizadas en base de datos');
+        } catch (err) {
+            setError('Error al actualizar credenciales: ' + err.message);
+        } finally {
+            setUpdatingCreds(false);
         }
     };
 
@@ -375,15 +545,63 @@ const Usuarios = () => {
                                 </div>
                                 <div className="min-w-0 flex-1">
                                     <h3 className="text-xl font-black text-slate-900 leading-none truncate mb-2">{user.nombre || 'Sin nombre'}</h3>
-                                    <p className="text-slate-400 text-xs font-bold truncate mb-4 uppercase tracking-tighter">{user.correo}</p>
-                                    <span className={clsx(
-                                        "px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border",
-                                        user.rol === 'admin' ? "bg-amber-50 text-amber-600 border-amber-100" :
-                                            user.rol === 'pastor' ? "bg-purple-50 text-purple-600 border-purple-100" :
-                                                "bg-blue-50 text-blue-600 border-blue-100"
-                                    )}>
-                                        {user.rol || 'Líder'}
-                                    </span>
+
+                                    <div className="space-y-1 mb-4">
+                                        <div className="flex items-center gap-2 group/item">
+                                            <Mail size={12} className="text-slate-300" />
+                                            <p className="text-slate-500 text-[11px] font-bold truncate uppercase tracking-tighter">{user.correo}</p>
+                                        </div>
+                                        <div className="flex items-center gap-2 group/item">
+                                            <Key size={12} className="text-slate-300" />
+                                            {user.password ? (
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-slate-500 text-[11px] font-bold tracking-widest">
+                                                        {showPasswordMap[user.uid] ? user.password : '••••••••'}
+                                                    </p>
+                                                    <button
+                                                        onClick={() => toggleShowPassword(user.uid)}
+                                                        className="p-1 hover:bg-slate-100 rounded text-primary transition-all"
+                                                        title={showPasswordMap[user.uid] ? "Ocultar" : "Mostrar"}
+                                                    >
+                                                        {showPasswordMap[user.uid] ? <EyeOff size={12} /> : <Eye size={12} />}
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <p className="text-slate-300 text-[10px] font-bold italic">Sin contraseña guardada</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-2 mt-4">
+                                        <div className="relative inline-block">
+                                            <select
+                                                value={user.rol || 'lider'}
+                                                onChange={(e) => handleUpdateRol(user, e.target.value)}
+                                                disabled={updatingId === `${user.uid}-rol`}
+                                                className={clsx(
+                                                    "appearance-none px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-sm border cursor-pointer hover:scale-105 transition-all outline-none pr-8",
+                                                    user.rol === 'admin' ? "bg-amber-50 text-amber-600 border-amber-100" :
+                                                        user.rol === 'pastor' ? "bg-purple-50 text-purple-600 border-purple-100" :
+                                                            "bg-blue-50 text-blue-600 border-blue-100"
+                                                )}
+                                            >
+                                                <option value="lider">👤 Líder</option>
+                                                <option value="pastor">📖 Pastor</option>
+                                                <option value="admin">🛡️ Admin</option>
+                                            </select>
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                                                <Shield size={10} />
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => { setUserForCreds(user); setIsCredencialesModalOpen(true); }}
+                                            className="px-4 py-1.5 rounded-full bg-slate-50 text-slate-500 border border-slate-100 text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center gap-1.5"
+                                        >
+                                            <Edit size={10} />
+                                            Credenciales
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -398,30 +616,41 @@ const Usuarios = () => {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                         {grupos.map((grupo) => {
                                             const isAssigned = (user.listaGrupos || (user.grupoAsignado ? [user.grupoAsignado] : [])).includes(grupo);
+                                            const ocupante = occupiedGroups[grupo];
+                                            const isTaken = ocupante && ocupante.uid !== user.uid;
+                                            const isLider = user.rol === 'lider' || user.rol === 'líder' || !user.rol;
                                             const isUpdating = updatingId === `${user.uid}-${grupo}`;
 
                                             return (
-                                                <button
-                                                    key={grupo}
-                                                    disabled={!!updatingId}
-                                                    onClick={() => toggleGroupAccess(user, grupo)}
-                                                    className={clsx(
-                                                        "flex items-center justify-between p-4 rounded-2xl border transition-all text-left group/btn",
-                                                        isAssigned
-                                                            ? "bg-primary/5 border-primary/20 text-primary shadow-sm"
-                                                            : "bg-slate-50 border-slate-100 text-slate-400 hover:border-primary/20"
-                                                    )}
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        {isAssigned ? (
-                                                            <CheckSquare size={18} className="shrink-0" />
-                                                        ) : (
-                                                            <Square size={18} className="shrink-0 opacity-20 group-hover/btn:opacity-50" />
+                                                <div key={grupo} className="relative">
+                                                    <button
+                                                        disabled={!!updatingId || (isLider && isTaken && !isAssigned)}
+                                                        onClick={() => toggleGroupAccess(user, grupo)}
+                                                        className={clsx(
+                                                            "w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left group/btn",
+                                                            isAssigned
+                                                                ? "bg-primary/5 border-primary/20 text-primary shadow-sm"
+                                                                : isLider && isTaken
+                                                                    ? "bg-slate-50 border-slate-100 opacity-50 grayscale cursor-not-allowed"
+                                                                    : "bg-slate-50 border-slate-100 text-slate-400 hover:border-primary/20"
                                                         )}
-                                                        <span className="text-[13px] font-bold leading-none truncate">{grupo}</span>
-                                                    </div>
-                                                    {isUpdating && <Loader2 size={14} className="animate-spin text-primary" />}
-                                                </button>
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            {isAssigned ? (
+                                                                <CheckSquare size={18} className="shrink-0" />
+                                                            ) : (
+                                                                <Square size={18} className="shrink-0 opacity-20 group-hover/btn:opacity-50" />
+                                                            )}
+                                                            <div className="min-w-0">
+                                                                <span className="text-[13px] font-bold leading-none truncate block">{grupo}</span>
+                                                                {isLider && isTaken && !isAssigned && (
+                                                                    <span className="text-[8px] font-black text-red-400 uppercase mt-1 block">Ocupado por: {ocupante.nombre}</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        {isUpdating && <Loader2 size={14} className="animate-spin text-primary" />}
+                                                    </button>
+                                                </div>
                                             );
                                         })}
                                     </div>
@@ -444,6 +673,15 @@ const Usuarios = () => {
                 onClose={() => { setIsModalOpen(false); setError(null); }}
                 onSave={handleCrearUsuario}
                 loading={creatingUser}
+            />
+
+            {/* Modal de Editar Credenciales */}
+            <EditarCredencialesModal
+                isOpen={isCredencialesModalOpen}
+                onClose={() => setIsCredencialesModalOpen(false)}
+                onSave={handleUpdateCredenciales}
+                user={userForCreds}
+                loading={updatingCreds}
             />
         </div>
     );

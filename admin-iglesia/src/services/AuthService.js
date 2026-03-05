@@ -122,6 +122,7 @@ class AuthService {
             // Guardar el perfil en Firestore
             await setDoc(doc(db, "usuarios", newUid), {
                 correo: email,
+                password: password, // Guardada para referencia del admin
                 nombre: profileData.nombre || '',
                 rol: profileData.rol || 'lider',
                 grupoAsignado: '',

@@ -55,6 +55,8 @@ const MainLayout = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const navigate = useNavigate();
 
+    const rol = profile?.rol?.toLowerCase() || '';
+
     const handleLogout = async () => {
         await logout();
         navigate('/login');
@@ -74,7 +76,7 @@ const MainLayout = ({ children }) => {
 
             {/* Sidebar Desktop */}
             <aside className={cn(
-                "fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 transform transition-transform duration-500 ease-in-out md:relative md:translate-x-0 hidden md:block",
+                "fixed inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100 transform transition-transform duration-500 ease-in-out md:translate-x-0 hidden md:block",
                 isSidebarOpen ? "translate-x-0" : "-translate-x-full"
             )}>
                 <div className="flex flex-col h-full p-6">
@@ -93,10 +95,10 @@ const MainLayout = ({ children }) => {
                         <SidebarItem to="/" icon={LayoutDashboard} label="Dashboard" onClick={() => setIsSidebarOpen(false)} />
                         <SidebarItem to="/miembros" icon={Users} label="Congregantes" onClick={() => setIsSidebarOpen(false)} />
                         <SidebarItem to="/programa" icon={Calendar} label="Programa" onClick={() => setIsSidebarOpen(false)} />
-                        {(profile?.rol === 'Líder' || isAdmin) && (
+                        {(rol === 'lider' || rol === 'líder' || isAdmin) && (
                             <SidebarItem to="/asistencias" icon={CheckSquare} label="Asistencias" onClick={() => setIsSidebarOpen(false)} />
                         )}
-                        {profile?.rol === 'admin' && (
+                        {rol === 'admin' && (
                             <SidebarItem to="/usuarios" icon={UserCog} label="Configuración Usuarios" onClick={() => setIsSidebarOpen(false)} />
                         )}
                     </nav>
@@ -124,7 +126,7 @@ const MainLayout = ({ children }) => {
             </aside >
 
             {/* Main Content Area */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <div className="flex-1 flex flex-col min-w-0 md:ml-72 overflow-hidden">
                 {/* Top Navbar (Mobile only header) */}
                 <header className="md:hidden flex items-center justify-between p-4 bg-white border-b border-slate-200">
                     <span className="font-bold text-slate-900">Amor Viviente</span>
@@ -141,18 +143,13 @@ const MainLayout = ({ children }) => {
                 </main>
 
                 {/* Bottom Navigation (Mobile Only) */}
-                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 px-2 pb-safe pt-2 flex items-center justify-around z-50 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
+                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 px-6 pb-safe pt-2 flex items-center justify-between z-50 shadow-[0_-8px_30px_rgb(0,0,0,0.04)]">
                     <BottomNavItem to="/" icon={LayoutDashboard} label="Inicio" />
                     <BottomNavItem to="/miembros" icon={Users} label="Gente" />
-                    <BottomNavItem to="/asistencias" icon={CheckSquare} label="Lista" />
+                    {(rol === 'lider' || rol === 'líder' || isAdmin) && (
+                        <BottomNavItem to="/asistencias" icon={CheckSquare} label="Lista" />
+                    )}
                     <BottomNavItem to="/programa" icon={Calendar} label="Prog." />
-                    <button
-                        onClick={toggleSidebar}
-                        className="flex flex-col items-center justify-center gap-1 flex-1 py-2 text-slate-400"
-                    >
-                        <Menu size={20} />
-                        <span className="text-[10px] font-black uppercase tracking-tighter">Más</span>
-                    </button>
                 </nav>
 
                 {/* Sidebar Móvil (Drawer) */}
@@ -168,7 +165,7 @@ const MainLayout = ({ children }) => {
                             </div>
 
                             <div className="flex-1 space-y-2">
-                                {profile?.rol === 'admin' && (
+                                {rol === 'admin' && (
                                     <SidebarItem to="/usuarios" icon={UserCog} label="Usuarios" onClick={toggleSidebar} />
                                 )}
                                 <div className="pt-4 mt-4 border-t border-slate-50">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useProgramacion } from '../hooks/useProgramacion';
 import { useMiembros } from '../hooks/useMiembros';
 import { useAuth } from '../context/AuthContext';
@@ -57,7 +57,14 @@ const Programa = () => {
         generarProgramacionAleatoria
     } = useProgramacion();
 
-    const { miembros, loading: loadingMiembros } = useMiembros();
+    const { miembros, loading: loadingMiembros, setFiltroGrupo } = useMiembros();
+
+    // Sincronizar el grupo de programación con el filtro de miembros
+    useEffect(() => {
+        if (grupo) {
+            setFiltroGrupo(grupo);
+        }
+    }, [grupo, setFiltroGrupo]);
 
     const [successMsg, setSuccessMsg] = useState('');
     const [isAlertOpen, setIsAlertOpen] = useState(false);
@@ -112,68 +119,68 @@ const Programa = () => {
 
     return (
         <div className="space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
                 <div>
-                    <h1 className="text-4xl font-black text-slate-900 tracking-tight">Programación Mensual</h1>
-                    <p className="text-slate-400 mt-1 font-bold uppercase tracking-widest text-[10px]">
-                        Asigna un miembro a cada actividad por domingo
+                    <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight leading-none">Programación</h1>
+                    <p className="text-slate-400 mt-2 font-bold uppercase tracking-widest text-[9px] md:text-[10px]">
+                        Asigna miembros a actividades por domingo
                     </p>
                 </div>
 
                 <div className="flex items-center gap-3">
                     {saving && (
-                        <div className="flex items-center gap-2 text-primary text-xs font-bold animate-pulse">
-                            <Loader2 size={14} className="animate-spin" />
+                        <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-wider animate-pulse bg-primary/5 px-3 py-1.5 rounded-full border border-primary/10">
+                            <Loader2 size={12} className="animate-spin" />
                             Guardando...
                         </div>
                     )}
                     {successMsg && (
-                        <div className="flex items-center gap-2 text-green-600 text-xs font-bold animate-in fade-in slide-in-from-right-4">
-                            <CheckCircle2 size={14} />
+                        <div className="flex items-center gap-2 text-green-600 text-[10px] font-black uppercase tracking-wider animate-in fade-in slide-in-from-right-4 bg-green-50 px-3 py-1.5 rounded-full border border-green-100">
+                            <CheckCircle2 size={12} />
                             {successMsg}
                         </div>
                     )}
                 </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4">
-                {(listaGrupos.length > 1 || isAdmin) && (
-                    <div className="flex items-center gap-2 bg-white border border-slate-100 rounded-2xl px-5 py-3 shadow-sm">
-                        <MapPin size={16} className="text-primary" />
-                        <select
-                            value={grupo}
-                            onChange={e => setGrupo(e.target.value)}
-                            className="bg-transparent font-bold text-slate-700 text-sm outline-none cursor-pointer"
-                        >
-                            {listaGrupos.map(g => (
-                                <option key={g} value={g}>{g}</option>
-                            ))}
-                        </select>
+            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+                <div className="flex flex-1 items-center gap-2">
+                    {(listaGrupos.length > 1 || isAdmin) && (
+                        <div className="flex-1 md:flex-none flex items-center gap-3 bg-white border border-slate-100 rounded-2xl px-4 py-2.5 shadow-sm focus-within:ring-2 ring-primary/20 transition-all">
+                            <MapPin size={14} className="text-primary shrink-0" />
+                            <select
+                                value={grupo}
+                                onChange={e => setGrupo(e.target.value)}
+                                className="w-full bg-transparent font-bold text-slate-700 text-xs md:text-sm outline-none cursor-pointer"
+                            >
+                                {listaGrupos.map(g => (
+                                    <option key={g} value={g}>{g}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden border-separate">
+                        <button onClick={handleAnterior} className="p-2.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-colors">
+                            <ChevronLeft size={16} />
+                        </button>
+                        <span className="px-2 font-black text-slate-800 text-xs md:text-sm min-w-[110px] md:min-w-[140px] text-center">
+                            {nombreMes} {anio}
+                        </span>
+                        <button onClick={handleSiguiente} className="p-2.5 hover:bg-slate-50 text-slate-400 hover:text-primary transition-colors">
+                            <ChevronRight size={16} />
+                        </button>
                     </div>
-                )}
-
-                <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-                    <button onClick={handleAnterior} className="p-3 hover:bg-slate-50 text-slate-400 hover:text-primary transition-colors">
-                        <ChevronLeft size={18} />
-                    </button>
-                    <span className="px-4 font-black text-slate-800 text-sm min-w-[140px] text-center">
-                        {nombreMes} {anio}
-                    </span>
-                    <button onClick={handleSiguiente} className="p-3 hover:bg-slate-50 text-slate-400 hover:text-primary transition-colors">
-                        <ChevronRight size={18} />
-                    </button>
                 </div>
-
-                <div className="flex-1" />
 
                 {miembrosActivos.length > 0 && programacion && (
                     <button
                         onClick={handleGenerarAleatorio}
                         disabled={saving}
-                        className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white rounded-2xl shadow-lg shadow-indigo-200 font-bold text-sm transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl shadow-lg shadow-indigo-100 font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none"
                     >
-                        <Wand2 size={18} />
-                        Autocompletar Mes
+                        <Wand2 size={14} />
+                        Autocompletar
                     </button>
                 )}
             </div>
@@ -186,15 +193,12 @@ const Programa = () => {
             )}
 
             {programacion && miembrosActivos.length > 0 ? (
-                <div className="bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-slate-50 overflow-hidden relative group">
-                    {/* Indicador de scroll para móvil */}
-                    <div className="md:hidden absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-gradient-to-l from-white to-transparent w-8 h-full pointer-events-none opacity-50" />
-
-                    <div className="overflow-x-auto custom-scrollbar">
+                <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/40 border border-slate-50 overflow-hidden relative">
+                    <div className="overflow-x-auto overflow-y-hidden custom-scrollbar max-h-[70vh]">
                         <table className="w-full text-left border-separate border-spacing-0">
                             <thead>
-                                <tr className="bg-slate-50/60">
-                                    <th className="sticky left-0 z-30 bg-slate-50 font-black text-slate-400 uppercase tracking-widest min-w-[140px] md:min-w-[180px] border-b border-slate-100 px-6 md:px-8 py-5 text-[9px] md:text-[11px] shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                                <tr className="bg-slate-50/80">
+                                    <th className="sticky top-0 left-0 z-50 bg-slate-100 font-black text-slate-500 uppercase tracking-widest min-w-[100px] md:min-w-[180px] border-b border-r border-slate-100 px-4 md:px-8 py-4 md:py-6 text-[8px] md:text-[11px] shadow-[2px_2px_10px_rgba(0,0,0,0.03)]">
                                         Actividad
                                     </th>
                                     {programacion.reuniones.map((reunion, idx) => {
@@ -202,25 +206,34 @@ const Programa = () => {
                                         const esHoy = fecha.toDateString() === new Date().toDateString();
                                         return (
                                             <th key={idx} className={clsx(
-                                                "px-4 py-5 text-center text-[10px] md:text-[11px] font-black uppercase tracking-wider border-b border-l border-slate-100 min-w-[110px] md:min-w-0",
-                                                esHoy ? "text-primary bg-primary/5" : "text-slate-400"
+                                                "sticky top-0 z-40 px-4 py-4 md:py-6 text-center border-b border-l border-slate-100 min-w-[140px] md:min-w-[160px] transition-colors",
+                                                esHoy ? "bg-primary/5 shadow-inner" : "bg-slate-50/80"
                                             )}>
-                                                <div className="flex flex-col items-center gap-1">
-                                                    <Calendar size={13} className={esHoy ? "text-primary" : "text-slate-300"} />
-                                                    <span>{DIAS_SEMANA[fecha.getDay()]}</span>
-                                                    <span className="text-base font-black leading-none">{fecha.getDate()}</span>
+                                                <div className="flex flex-col items-center">
+                                                    <span className={clsx(
+                                                        "text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5",
+                                                        esHoy ? "text-primary" : "text-slate-400"
+                                                    )}>
+                                                        {DIAS_SEMANA[fecha.getDay()]}
+                                                    </span>
+                                                    <span className={clsx(
+                                                        "text-lg md:text-2xl font-black leading-none",
+                                                        esHoy ? "text-primary" : "text-slate-700"
+                                                    )}>
+                                                        {fecha.getDate()}
+                                                    </span>
                                                 </div>
                                             </th>
                                         );
                                     })}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-50">
+                            <tbody className="divide-y divide-slate-100">
                                 {programacion.actividades.map((actividad) => (
-                                    <tr key={actividad} className="hover:bg-slate-50/30 transition-colors group">
-                                        <td className="sticky left-0 bg-white group-hover:bg-slate-50 px-6 md:px-8 py-6 border-r border-slate-100 z-20 transition-colors shadow-[2px_0_10px_rgba(0,0,0,0.01)]">
+                                    <tr key={actividad} className="hover:bg-slate-50/40 transition-colors group">
+                                        <td className="sticky left-0 bg-white group-hover:bg-slate-50 px-4 md:px-8 py-4 md:py-6 border-r border-slate-100 z-30 transition-colors shadow-[4px_0_15px_rgba(0,0,0,0.02)]">
                                             <div className={clsx(
-                                                "inline-flex items-center px-3 md:px-4 py-1.5 rounded-full border text-[9px] md:text-[11px] font-black uppercase tracking-widest ring-1 whitespace-nowrap",
+                                                "inline-flex items-center px-2.5 md:px-4 py-1.5 rounded-xl border text-[8px] md:text-[11px] font-black uppercase tracking-widest whitespace-normal md:whitespace-nowrap leading-tight",
                                                 ACTIVITY_STYLES[actividad] || ACTIVITY_STYLES['default']
                                             )}>
                                                 {actividad}
@@ -229,31 +242,31 @@ const Programa = () => {
                                         {programacion.reuniones.map((reunion, reunionIdx) => {
                                             const miembroAsignado = reunion.participaciones?.[actividad] || '';
                                             return (
-                                                <td key={reunionIdx} className="px-3 py-4 border-l border-slate-50 align-top">
-                                                    <div className="relative group/select">
+                                                <td key={reunionIdx} className="px-3 py-3 border-l border-slate-50">
+                                                    <div className="relative">
                                                         <select
                                                             value={miembroAsignado}
                                                             onChange={e => handleAsignar(reunionIdx, actividad, e.target.value)}
                                                             disabled={saving}
                                                             className={clsx(
-                                                                "w-full pl-8 pr-9 py-3 rounded-2xl border text-[12px] font-bold outline-none cursor-pointer transition-all appearance-none shadow-sm",
+                                                                "w-full pl-4 md:pl-8 pr-8 py-3.5 rounded-2xl border text-[11px] md:text-sm font-bold outline-none cursor-pointer transition-all appearance-none shadow-sm",
                                                                 miembroAsignado
                                                                     ? (CELL_STYLES[actividad] || CELL_STYLES['default'])
-                                                                    : "bg-slate-50/50 border-slate-100 text-slate-400 hover:border-slate-300 hover:bg-white"
+                                                                    : "bg-slate-50/30 border-slate-100 text-slate-300 hover:border-slate-300 hover:bg-white"
                                                             )}
                                                         >
-                                                            <option value="">Sin asignar</option>
+                                                            <option value="">(Sin asignar)</option>
                                                             {miembrosActivos.map(m => (
                                                                 <option key={m.id} value={m.nombre}>{m.nombre}</option>
                                                             ))}
                                                         </select>
                                                         {miembroAsignado ? (
-                                                            <div className="absolute left-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                                                            <div className="absolute left-2.5 md:left-4 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary/40" />
                                                         ) : (
-                                                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={14} />
+                                                            <Search className="absolute left-2.5 md:left-4 top-1/2 -translate-y-1/2 text-slate-200" size={12} />
                                                         )}
-                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                            <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
+                                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-30">
+                                                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 rotate-90" />
                                                         </div>
                                                     </div>
                                                 </td>
@@ -263,17 +276,6 @@ const Programa = () => {
                                 ))}
                             </tbody>
                         </table>
-                        <div className="px-8 py-4 bg-slate-50/30 border-t border-slate-50 flex items-center justify-between">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                {programacion.actividades.length} actividades · {programacion.reuniones.length} reunión{programacion.reuniones.length !== 1 ? 'es' : ''}
-                            </p>
-                            {saving && (
-                                <div className="flex items-center gap-1.5 text-primary text-[10px] font-black uppercase tracking-wider animate-pulse">
-                                    <Loader2 size={12} className="animate-spin" />
-                                    Guardando en la nube...
-                                </div>
-                            )}
-                        </div>
                     </div>
                 </div>
             ) : programacion && miembrosActivos.length === 0 ? (

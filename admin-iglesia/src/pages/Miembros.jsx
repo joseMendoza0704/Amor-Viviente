@@ -76,7 +76,8 @@ const StatusPill = ({ status, colorClass }) => {
 };
 
 const Miembros = () => {
-    const { profile } = useAuth();
+    const { profile, isAdmin } = useAuth();
+    const rol = profile?.rol?.toLowerCase() || '';
     const {
         miembros,
         loading,
@@ -163,51 +164,76 @@ const Miembros = () => {
     const MiembroCardMobile = ({ miembro }) => (
         <div
             onClick={() => handleOpenEdit(miembro)}
-            className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm active:scale-[0.98] transition-all relative overflow-hidden"
+            className="group bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm hover:shadow-md active:scale-[0.98] transition-all relative overflow-hidden flex items-center gap-4"
         >
-            <div className="flex items-start gap-4 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-500 font-black border border-slate-100 uppercase text-sm shrink-0">
-                    {miembro.nombre.charAt(0)}
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center text-primary font-black border border-slate-200 uppercase text-xl shrink-0 shadow-inner">
+                {miembro.nombre.charAt(0)}
+            </div>
+
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                    <p className="font-extrabold text-slate-900 text-[15px] truncate tracking-tight">{miembro.nombre}</p>
+                    {miembro.rol && miembro.rol !== 'Congregante' && (
+                        <div className="p-1 bg-amber-50 text-amber-500 rounded-lg shrink-0">
+                            <Crown size={10} />
+                        </div>
+                    )}
                 </div>
-                <div className="flex-1 min-w-0">
-                    <p className="font-black text-slate-800 text-lg leading-tight truncate">{miembro.nombre}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{miembro.grupo}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                        <Phone size={10} className="text-slate-300" />
-                        <span className="text-[11px] text-slate-500 font-bold">{miembro.telefono || 'Sin teléfono'}</span>
+
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.1em] mb-2">{miembro.grupo}</p>
+
+                <div className="flex items-center gap-3">
+                    <div className="flex -space-x-1.5">
+                        {miembro.historialAsistencia?.slice(-4).map((item, id) => (
+                            <div
+                                key={id}
+                                className={clsx(
+                                    "w-4 h-4 rounded-full border-2 border-white flex items-center justify-center text-[6px] font-black ring-1 ring-slate-100",
+                                    item.estado === 'asistio' ? "bg-green-500 text-white" :
+                                        item.estado === 'excusa' ? "bg-amber-400 text-white" : "bg-red-500 text-white"
+                                )}
+                            >
+                                {item.dia}
+                            </div>
+                        ))}
                     </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                    <StatusPill status={miembro.estadoSeguimiento} />
+                    <div className="h-3 w-[1px] bg-slate-100 shrink-0" />
+                    <div className="flex items-center gap-1">
+                        <Phone size={10} className="text-slate-300" />
+                        <span className="text-[10px] text-slate-400 font-bold">{miembro.telefono || '---'}</span>
+                    </div>
                 </div>
             </div>
 
-            <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                <div className="flex gap-1">
-                    {miembro.historialAsistencia?.slice(-5).map((item, id) => (
-                        <AttendanceSquare key={id} item={item} />
-                    ))}
+            <div className="flex flex-col items-end gap-3 shrink-0">
+                <div className={clsx(
+                    "px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border shadow-sm",
+                    miembro.estadoSeguimiento === "Activo" ? "bg-green-50 text-green-600 border-green-100" :
+                        miembro.estadoSeguimiento === "Baja / Inactivo" ? "bg-slate-50 text-slate-400 border-slate-100" :
+                            "bg-blue-50 text-blue-600 border-blue-100 animate-pulse"
+                )}>
+                    {miembro.estadoSeguimiento.split(' ')[0]}
                 </div>
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
                         setOpenMenuId(openMenuId === miembro.id ? null : miembro.id);
                     }}
-                    className="p-2 bg-slate-50 rounded-xl text-slate-400"
+                    className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-300 transition-colors"
                 >
-                    <MoreVertical size={18} />
+                    <MoreVertical size={16} />
                 </button>
             </div>
 
             {/* Menu Dropdown - Ajustado para móvil */}
             {openMenuId === miembro.id && (
-                <div className="absolute right-4 bottom-16 z-10 bg-white rounded-2xl shadow-2xl border border-slate-100 p-1 animate-in slide-in-from-bottom-2 duration-200">
-                    <button onClick={(e) => { e.stopPropagation(); handleCorreccionAsistencia(miembro); setOpenMenuId(null); }} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-600">
-                        <CheckCircle2 size={14} className="text-green-500" /> Corregir Asistencia
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl border border-slate-100 p-1 flex flex-col gap-0.5 animate-in slide-in-from-right-4 duration-300">
+                    <button onClick={(e) => { e.stopPropagation(); handleCorreccionAsistencia(miembro); setOpenMenuId(null); }} className="flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:bg-slate-50 rounded-xl transition-all">
+                        <CheckCircle2 size={12} className="text-green-500" /> Historial
                     </button>
-                    {profile?.rol === 'admin' && (
-                        <button onClick={(e) => { e.stopPropagation(); handleDeactivate(miembro.id); }} className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-red-500">
-                            <UserMinus size={14} /> Dar de baja
+                    {isAdmin && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDeactivate(miembro.id); }} className="flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                            <UserMinus size={12} /> Baja
                         </button>
                     )}
                 </div>
@@ -300,7 +326,7 @@ const Miembros = () => {
                             <CheckCircle2 size={18} className="text-green-500" />
                             Corregir Asistencia
                         </button>
-                        {profile?.rol === 'admin' && (
+                        {isAdmin && (
                             <>
                                 <div className="my-1.5 border-t border-slate-50" />
                                 <button
@@ -358,7 +384,7 @@ const Miembros = () => {
                                 onChange={(e) => setFiltroGrupo(e.target.value)}
                                 className="bg-slate-100 px-3 py-1 rounded-lg border-none outline-none text-primary font-bold text-[11px] cursor-pointer hover:bg-slate-200 transition-colors"
                             >
-                                {(profile?.isAdmin || profile?.rol === 'admin' || profile?.rol === 'pastor') && <option value="">Todos los grupos</option>}
+                                {(isAdmin || rol === 'pastor') && <option value="">Todos los grupos</option>}
                                 {listaGrupos.map(g => (
                                     <option key={g} value={g}>{g}</option>
                                 ))}

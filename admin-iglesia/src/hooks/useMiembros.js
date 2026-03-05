@@ -96,9 +96,16 @@ export const useMiembros = () => {
                     dia = date.getDate();
                 }
 
-                // Determinar estado
+                // Determinar estado (Soporte Híbrido: Antiguo [nombres] y Nuevo [objetos])
                 let estado = 'falto';
-                if (asist.miembros?.includes(m.nombre)) estado = 'asistio';
+
+                // Formato Nuevo (Objetos con ID)
+                if (asist.presentes?.some(p => p.id === m.id)) estado = 'asistio';
+                else if (asist.excusados?.some(e => e.id === m.id)) estado = 'excusa';
+                else if (asist.ausentes?.some(a => a.id === m.id)) estado = 'falto';
+
+                // Formato Antiguo (Listas de nombres) - Solo si no se encontró en el nuevo
+                else if (asist.miembros?.includes(m.nombre)) estado = 'asistio';
                 else if (asist.justificados?.includes(m.nombre)) estado = 'excusa';
 
                 return { estado, dia };
